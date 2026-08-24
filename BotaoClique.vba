@@ -4,7 +4,7 @@ Sub BotaoClique_Click()
     Application.ScreenUpdating = False
     On Error GoTo ErroHandler
     
-    ' Seu comando original estável
+   
     Set obj = CreateObject("ProtecaoVBA.Calculador")
     obj.contaum Application
     
