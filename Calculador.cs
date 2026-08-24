@@ -1,6 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
-using System.Windows.Forms; // Necessário adicionar a referência para exibir o aviso
+using System.Windows.Forms;
 using Excel = Microsoft.Office.Interop.Excel;
 
 namespace ProtecaoVBA
@@ -17,16 +17,16 @@ namespace ProtecaoVBA
         {
             DateTime agora = DateTime.Now;
 
-            // ⚠️ TRAVA DE SEGURANÇA: Bloqueia a execução a partir de 01/01/2027
+            // Trava de segurança para 2027
             if (agora.Year >= 2027)
             {
                 MessageBox.Show(
-                    "Este software expirou em 01/01/2027.\nPor favor, entre em contato com o desenvolvedor para realizar a atualização do sistema.\nRobson (74) 99965-3574.", 
+                    "Este software expirou em 01/01/2027.\nRobson (74) 99965-3574.", 
                     "Sistema Expirado", 
                     MessageBoxButtons.OK, 
                     MessageBoxIcon.Warning
                 );
-                return; // Aborta a execução imediatamente e não registra o clique
+                return;
             }
 
             Excel.Application app = (Excel.Application)excelApp;
@@ -37,28 +37,38 @@ namespace ProtecaoVBA
             double dataSerial = Math.Floor(agora.Date.ToOADate());
             bool encontrou = false;
 
-            // Busca na tabela
+            // Percorre as linhas convertendo explicitamente cada celula para o tipo correto do Excel
             foreach (Excel.ListRow row in tabela.ListRows)
             {
-                if (Convert.ToDouble(row.Range[1, 1].Value2) == dataSerial && 
-                    row.Range[1, 2].Value.ToString() == horaAtual)
+                Excel.Range r = (Excel.Range)row.Range;
+                Excel.Range celulaData = (Excel.Range)r.Cells[1, 1];
+                Excel.Range celulaHora = (Excel.Range)r.Cells[1, 2];
+                Excel.Range celulaContagem = (Excel.Range)r.Cells[1, 3];
+
+                if (celulaData.Value2 != null && celulaHora.Value != null)
                 {
-                    row.Range[1, 3].Value = Convert.ToDouble(row.Range[1, 3].Value) + 1;
-                    encontrou = true;
-                    break;
+                    if (Convert.ToDouble(celulaData.Value2) == dataSerial && 
+                        celulaHora.Value.ToString() == horaAtual)
+                    {
+                        celulaContagem.Value = Convert.ToDouble(celulaContagem.Value) + 1;
+                        encontrou = true;
+                        break;
+                    }
                 }
             }
 
-            // Se não encontrou, adiciona nova linha
+            // Se não encontrou, adiciona nova linha e insere os dados iniciais
             if (!encontrou)
             {
                 Excel.ListRow novaLinha = tabela.ListRows.Add();
-                novaLinha.Range[1, 1].Value = dataSerial;
-                novaLinha.Range[1, 2].Value = horaAtual;
-                novaLinha.Range[1, 3].Value = 1;
+                Excel.Range rNova = (Excel.Range)novaLinha.Range;
+                
+                ((Excel.Range)rNova.Cells[1, 1]).Value = dataSerial;
+                ((Excel.Range)rNova.Cells[1, 2]).Value = horaAtual;
+                ((Excel.Range)rNova.Cells[1, 3]).Value = 1;
             }
 
-            // Limpeza de memória COM
+            // Limpeza manual de memoria COM
             if (tabela != null) Marshal.ReleaseComObject(tabela);
             if (ws != null) Marshal.ReleaseComObject(ws);
             if (app != null) Marshal.ReleaseComObject(app);
