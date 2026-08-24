@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Windows.Forms; // Necessário adicionar a referência para exibir o aviso
 using Excel = Microsoft.Office.Interop.Excel;
 
 namespace ProtecaoVBA
@@ -14,13 +15,24 @@ namespace ProtecaoVBA
     {
         public void ContaUm(object excelApp)
         {
+            DateTime agora = DateTime.Now;
+
+            // ⚠️ TRAVA DE SEGURANÇA: Bloqueia a execução a partir de 01/01/2027
+            if (agora.Year >= 2027)
+            {
+                MessageBox.Show(
+                    "Este software expirou em 01/01/2027.\nPor favor, entre em contato com o desenvolvedor para realizar a atualização do sistema.\nRobson (74) 99965-3574.", 
+                    "Sistema Expirado", 
+                    MessageBoxButtons.OK, 
+                    MessageBoxIcon.Warning
+                );
+                return; // Aborta a execução imediatamente e não registra o clique
+            }
+
             Excel.Application app = (Excel.Application)excelApp;
             Excel.Worksheet ws = (Excel.Worksheet)app.ActiveSheet;
-            
-            // Tabela nomeada como "TabelaCliques" no Excel
             Excel.ListObject tabela = ws.ListObjects["TabelaCliques"];
             
-            DateTime agora = DateTime.Now;
             string horaAtual = agora.ToString("HH:00 - HH:59");
             double dataSerial = Math.Floor(agora.Date.ToOADate());
             bool encontrou = false;
@@ -37,7 +49,7 @@ namespace ProtecaoVBA
                 }
             }
 
-            // Se não encontrou, adiciona nova linha (herda formatação da tabela)
+            // Se não encontrou, adiciona nova linha
             if (!encontrou)
             {
                 Excel.ListRow novaLinha = tabela.ListRows.Add();
