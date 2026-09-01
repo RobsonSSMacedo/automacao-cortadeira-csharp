@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using Excel = Microsoft.Office.Interop.Excel;
 
 namespace ProtecaoVBA
 {
@@ -17,59 +16,79 @@ namespace ProtecaoVBA
         {
             DateTime agora = DateTime.Now;
 
-            // Trava de segurança para 2027
-            if (agora.Year >= 2027)
+            // 🔒 TRAVA DE SEGURANÇA: Bloqueia a partir de 01/01/2027
+            if (agora >= new DateTime(2027, 1, 1))
             {
                 MessageBox.Show(
-                    "Este software expirou!\nEntre em contato com o suporte\npara obter nova licensa ;).\nRobson (74) 99965-3574.",
-                    "Sistema Expirado",
-                    MessageBoxButtons.OK,
+                    "Este software expirou em 01/01/2027.\nRobson (74) 99965-3574.", 
+                    "Sistema Expirado", 
+                    MessageBoxButtons.OK, 
                     MessageBoxIcon.Warning
                 );
                 return;
             }
 
-            Excel.Application app = (Excel.Application)excelApp;
-            Excel.Worksheet ws = (Excel.Worksheet)app.ActiveSheet;
-            Excel.ListObject tabela = ws.ListObjects["TabelaCliques"];
-
-            string horaAtual = agora.ToString("HH:00 - HH:59");
-            double dataSerial = Math.Floor(agora.Date.ToOADate());
-            bool encontrou = false;
-
-            // Uso de dynamic elimina a dependência rígida do assembly 'office'
-            foreach (Excel.ListRow row in tabela.ListRows)
+            try
             {
-                dynamic r = row.Range;
-                dynamic celulaData = r.Cells[1, 1];
-                dynamic celulaHora = r.Cells[1, 2];
-                dynamic celulaContagem = r.Cells[1, 3];
+                dynamic app = excelApp;
+                dynamic ws = app.ActiveSheet;
+                
+                string horaAtual = agora.ToString("HH:00 - HH:59");
+                double dataHojeSerial = Math.Floor(agora.Date.ToOADate());
+                bool encontrou = false;
 
-                if (celulaData.Value2 != null && celulaHora.Value != null)
+                int ultimaLinha = ws.Cells[ws.Rows.Count, 1].End(-4162).Row;
+                if (ultimaLinha < 2) ultimaLinha = 1;
+
+                for (int i = 2; i <= ultimaLinha; i++)
                 {
-                    if (Convert.ToDouble(celulaData.Value2) == dataSerial &&
-                        celulaHora.Value.ToString() == horaAtual)
+                    var valorCelulaA = ws.Cells[i, 1].Value;
+                    string valorHora = Convert.ToString(ws.Cells[i, 2].Value);
+
+                    if (valorCelulaA != null && valorHora == horaAtual)
                     {
-                        celulaContagem.Value = Convert.ToDouble(celulaContagem.Value) + 1;
-                        encontrou = true;
-                        break;
+                        double dataPlanilhaSerial = 0;
+
+                        if (valorCelulaA is double || valorCelulaA is int || valorCelulaA is long)
+                        {
+                            dataPlanilhaSerial = Math.Floor(Convert.ToDouble(valorCelulaA));
+                        }
+                        else
+                        {
+                            DateTime dataConvertida;
+                            if (DateTime.TryParse(Convert.ToString(valorCelulaA), out dataConvertida))
+                            {
+                                dataPlanilhaSerial = Math.Floor(dataConvertida.Date.ToOADate());
+                            }
+                        }
+
+                        if (dataPlanilhaSerial == dataHojeSerial)
+                        {
+                            double valorAtual = 0;
+                            double.TryParse(Convert.ToString(ws.Cells[i, 3].Value), out valorAtual);
+                            ws.Cells[i, 3].Value = valorAtual + 1;
+                            encontrou = true;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (!encontrou)
+                if (!encontrou)
+                {
+                    int novaLinha = (ultimaLinha < 2 && Convert.ToString(ws.Cells.Value) == "") ? 2 : ultimaLinha + 1;
+                    
+                    ws.Cells[novaLinha, 1].Value = dataHojeSerial;
+                    ws.Cells[novaLinha, 1].NumberFormat = "dd/mm/aaaa"; 
+                    
+                    ws.Cells[novaLinha, 2].Value = horaAtual;
+                    ws.Cells[novaLinha, 3].Value = 1;
+                }
+            }
+            catch (Exception ex)
             {
-                Excel.ListRow novaLinha = tabela.ListRows.Add();
-                dynamic rNova = novaLinha.Range;
-
-                rNova.Cells[1, 1].Value = dataSerial;
-                rNova.Cells[1, 2].Value = horaAtual;
-                rNova.Cells[1, 3].Value = 1;
+                MessageBox.Show("Erro na integração com a tela do Excel: " + ex.Message);
             }
 
-            if (tabela != null) Marshal.ReleaseComObject(tabela);
-            if (ws != null) Marshal.ReleaseComObject(ws);
-            if (app != null) Marshal.ReleaseComObject(app);
             GC.Collect();
             GC.WaitForPendingFinalizers();
         }
